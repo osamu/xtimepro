@@ -187,7 +187,7 @@ main(int argc, char *argv[])
 	} else {		// there was something event 
 
 		if (stat->prev_time == -1) {	// this is first event since
-			// checktime.
+                          			// checktime.
 			fp = fopen(config->output_file, "a+");
 			fprintf(fp, "in : %s", ctime(&now));
 			if (debug)
