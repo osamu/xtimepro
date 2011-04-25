@@ -1,0 +1,73 @@
+ 
+ xtimepro -- Manage attenace of youself at X11 environment
+
+* CORE TIME CALCULATION
+
+** NO EVENT 
+
+prev_idle > this_idle
+
+  exec               exec        exec
+  *    ....          *           *    
+-----------------------------------------------------------> TIMELINE
+  ^                  ^           ^           ^
+  last=prev_time     |           now         checktime
+                     |           |
+------ ... --------->|           |
+     prev_idle                   |
+------ ... --------------------->|
+     this_idle
+
+
+** SOME EVENT
+
+ this_idle < prev_idle 
+  => something of EVENT is occur between exec.
+
+  exec               exec  EVENT      exec
+  *    ....          *     *          *    
+-----------------------------------------------------------> TIMELINE
+  ^                  ^     ^          ^           ^
+  prev_time          |     |          now         checktime
+                     |     |          last
+------ ... --------->|     |          |
+     prev_idle             |          |
+                           |--------->|
+                            this_idle
+
+** OVER THE CHECKTIME
+
+ now > checktime > prev_time
+  => Record last(=prev_time) as latest event of day.
+  => set prev_time = last = -1 
+
+  exec               exec                     exec
+  *    ....          *                        *    
+-----------------------------------------------------------> TIMELINE
+  ^                  ^           ^            ^
+  last=prev_time     |           checktime    now 
+                     |                        |
+------ ... --------->|                        |
+     prev_idle                                |
+------ ... ---------------------------------->|
+                             this_idle
+
+** FIRST EVENT OF DAY
+
+  prev_time == -1
+  prev_idle > this_idle   
+  => Record time now as First of Event of day.
+     
+  exec                     exec    EVENT    exec
+  *    ....                *       *        *    
+-----------------------------------------------------------> TIMELINE
+               ^           ^       ^         ^
+               checktime   |       |         now=last
+                           |       |         |
+------ ... --------------->|       |         |
+     prev_idle                     |         |
+                                   |-------->|
+  prev_time= -1                      this_idle
+
+
+.
