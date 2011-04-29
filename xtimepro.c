@@ -14,7 +14,10 @@
 #define CHECKTIME_MIN 0
 #define OUTPUT_FILE "/tmp/xtimepro-log.txt"
 #define STAT_FILE "/tmp/.xtimepro"
+#define DEBUG_FILE "/tmp/xtimepro.debug"
 
+static program_string "xtimepro";
+static version_string "0.9";
 static int      debug = 0;
 
 struct xtimepro_config {
@@ -22,6 +25,7 @@ struct xtimepro_config {
 	time_t          chktime_time;
 	char           *output_file;
 	char           *stat_file;
+        char           *debug_file;
 };
 
 struct xtimepro_stat {
@@ -43,6 +47,7 @@ xtimepro_default_config()
 	tc->chktime_time = mktime(tc->chktime_tm);
 	tc->output_file = OUTPUT_FILE;
 	tc->stat_file = STAT_FILE;
+	tc->debug_file = DEBUG_FILE;
 
 	return tc;
 }
@@ -51,7 +56,7 @@ struct xtimepro_stat *
 xtimepro_read_stat(char *filename, struct xtimepro_stat *stat)
 {
 	FILE           *stat_fp = NULL;
-
+	
 	if ((stat_fp = fopen(filename, "r")) == NULL) {
 		fprintf(stderr, "Can't open stat file : %s\n", filename);
 		fprintf(stderr, "xtimepro initialize with %s\n");
@@ -79,6 +84,7 @@ xtimepro_write_stat(char *filename, int last_time, int this_idle, int total_idle
 		fprintf(stderr, "Error: Can't open stat file : %s\n", filename);
 		return -1;
 	}
+
 	fprintf(stat_fp, "%d %d %d\n", last_time, this_idle, total_idle);
 
 	if (debug)
@@ -128,8 +134,9 @@ parse_option(struct xtimepro_config *config, int argc, char *argv[])
 	}
 
 	if (debug) {
-		printf("DEBUG: attendance result  file is %s\n",
+		printf("DEBUG: attendance result file is %s\n",
 		       config->output_file);
+		printf("DEBUG: debug file is %s\n", config->debug_file);
 		printf("DEBUG: status file is %s\n", config->stat_file);
 	}
 
@@ -138,7 +145,7 @@ parse_option(struct xtimepro_config *config, int argc, char *argv[])
 }
 
 time_t
-get_idle_time()
+x11_get_idle_time()
 {
 	time_t          idle_time;
 	static XScreenSaverInfo *mit_info;
@@ -162,18 +169,22 @@ main(int argc, char *argv[])
 {
 	struct xtimepro_config *config;
 	struct xtimepro_stat *stat;
-	FILE           *fp;
+	FILE           *fp, *debugfp;
 	time_t          now = 0, last = 0;
 	time_t          this_idle = 0;
+	char            timestring[128];
 
 	config = xtimepro_default_config();
 	stat = (struct xtimepro_stat *) malloc(sizeof(struct xtimepro_stat));
-
 	parse_option(config, argc, argv);
 
-	// preper
+	if(debug)
+	  debugfp = fopen(config->debug_file, "a+");
+
 	now = time(NULL);
-	this_idle = get_idle_time();
+	strftime(timestring, 1024, "%b %d %T", localtime(&now));
+	this_idle = x11_get_idle_time();
+
 	if (debug)
 		printf("DEBUG: checktime : %s", ctime(&(config->chktime_time)));
 
@@ -184,19 +195,31 @@ main(int argc, char *argv[])
 	if (this_idle > stat->prev_idle) {	// continues to be idle 
 		last = stat->prev_time;
 
+		if(debug) {
+		  fprintf(debugfp, "%s : idle continue idle=%d, last=%d\n", 
+			  timestring, this_idle, last);
+		}
+
 	} else {		// there was something event 
 
 		if (stat->prev_time == -1) {	// this is first event since
                           			// checktime.
 			fp = fopen(config->output_file, "a+");
 			fprintf(fp, "in : %s", ctime(&now));
-			if (debug)
-				printf("in : %s", ctime(&now));
+
+			if (debug) 
+			  fprintf(debugfp, "%s : checkin\n", timestring);
 
 			fclose(fp);
 		}
 		last = now;
 		stat->total_idle += stat->prev_idle;
+
+		if(debug) {
+		  fprintf(debugfp, "%s : event occour idle=%d, last=%d\n", 
+			  timestring, this_idle, last);
+	
+		}
 	}
 
 	// checktime processing 
@@ -204,12 +227,20 @@ main(int argc, char *argv[])
 	    && (last < config->chktime_time) && (config->chktime_time < now)) {
 		fp = fopen(config->output_file, "a+");
 		fprintf(fp, "out : %s", ctime(&last));
-		if (debug)
-			printf("out : %s", ctime(&last));
+
+		if (debug) { 
+		  fprintf(debugfp, "%s : checkout\n", timestring);
+		}
+		
 		last = -1;	// UNTILL FIRST EVENT 
 		stat->total_idle = 0;
 		fclose(fp);
 	}
+
+	if(debug) 
+	  fclose(debugfp);
+
+
 	// write status 
 	xtimepro_write_stat(config->stat_file, last, this_idle, stat->total_idle);
 	
