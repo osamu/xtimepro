@@ -1,8 +1,11 @@
  
  xtimepro -- Manage attenace of youself at X11 environment
 
-* CORE TIME CALCULATION
+* STAT FILE FORMAT
 
+  last idle-time total-idle-time
+
+* CORE TIME CALCULATION
 ** NO EVENT 
 
 prev_idle > this_idle
